@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ethers } from "ethers";
+import { BrowserProvider, Contract, parseEther, formatEther } from "ethers"; // Исправленные импорты
 import OrderBookABI from "./abis/OrderBook.json"; // ABI контракта OrderBook
 import TradeABI from "./abis/Trade.json"; // ABI контракта Trade
 import TokenManagerABI from "./abis/TokenManager.json"; // ABI контракта TokenManager
@@ -25,9 +25,9 @@ function App() {
   // Подключение к MetaMask
   const connectWallet = async () => {
     if (window.ethereum) {
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const provider = new BrowserProvider(window.ethereum); // Используем BrowserProvider вместо Web3Provider
       await provider.send("eth_requestAccounts", []);
-      const signer = provider.getSigner();
+      const signer = await provider.getSigner();
       const address = await signer.getAddress();
       setProvider(provider);
       setSigner(signer);
@@ -40,10 +40,10 @@ function App() {
   // Загрузка активных ордеров
   const loadOrders = async () => {
     if (!provider) return;
-    const orderBook = new ethers.Contract(ORDERBOOK_ADDRESS, OrderBookABI.abi, provider);
+    const orderBook = new Contract(ORDERBOOK_ADDRESS, OrderBookABI.abi, provider);
     const orderCount = await orderBook.orderCounter();
     const loadedOrders = [];
-    for (let i = 1; i <= orderCount; i++) {
+    for (let i = 1n; i <= orderCount; i++) { // Используем BigInt для индекса
       const order = await orderBook.orders(i);
       if (order.active) {
         loadedOrders.push({
@@ -51,8 +51,8 @@ function App() {
           creator: order.creator,
           tokenToSell: order.tokenToSell,
           tokenToBuy: order.tokenToBuy,
-          sellAmount: ethers.utils.formatEther(order.sellAmount),
-          buyAmount: ethers.utils.formatEther(order.buyAmount),
+          sellAmount: formatEther(order.sellAmount), // Используем formatEther из ethers
+          buyAmount: formatEther(order.buyAmount),   // Используем formatEther из ethers
         });
       }
     }
@@ -62,16 +62,16 @@ function App() {
   // Создание ордера
   const createOrder = async () => {
     if (!signer) return;
-    const orderBook = new ethers.Contract(ORDERBOOK_ADDRESS, OrderBookABI.abi, signer);
-    const tokenToSell = new ethers.Contract(sellToken, ERC20ABI.abi, signer);
+    const orderBook = new Contract(ORDERBOOK_ADDRESS, OrderBookABI.abi, signer);
+    const tokenToSell = new Contract(sellToken, ERC20ABI.abi, signer);
 
-    const sellAmountWei = ethers.utils.parseEther(sellAmount);
-    const buyAmountWei = ethers.utils.parseEther(buyAmount);
+    const sellAmountWei = parseEther(sellAmount); // Используем parseEther из ethers
+    const buyAmountWei = parseEther(buyAmount);   // Используем parseEther из ethers
 
     try {
       // Одобрение токенов
-      await tokenToSell.approve(ORDERBOOK_ADDRESS, sellAmountWei);
-      await tokenToSell.approve.wait();
+      const approveTx = await tokenToSell.approve(ORDERBOOK_ADDRESS, sellAmountWei);
+      await approveTx.wait();
 
       // Создание ордера
       const tx = await orderBook.createOrder(sellToken, buyToken, sellAmountWei, buyAmountWei);
@@ -87,15 +87,15 @@ function App() {
   // Исполнение ордера
   const executeOrder = async (orderId) => {
     if (!signer) return;
-    const trade = new ethers.Contract(TRADE_ADDRESS, TradeABI.abi, signer);
-    const orderBook = new ethers.Contract(ORDERBOOK_ADDRESS, OrderBookABI.abi, provider);
+    const trade = new Contract(TRADE_ADDRESS, TradeABI.abi, signer);
+    const orderBook = new Contract(ORDERBOOK_ADDRESS, OrderBookABI.abi, provider);
     const order = await orderBook.orders(orderId);
-    const tokenToBuy = new ethers.Contract(order.tokenToBuy, ERC20ABI.abi, signer);
+    const tokenToBuy = new Contract(order.tokenToBuy, ERC20ABI.abi, signer);
 
     try {
       // Одобрение токенов для исполнения
-      await tokenToBuy.approve(TRADE_ADDRESS, order.buyAmount);
-      await tokenToBuy.approve.wait();
+      const approveTx = await tokenToBuy.approve(TRADE_ADDRESS, order.buyAmount);
+      await approveTx.wait();
 
       // Исполнение ордера
       const tx = await trade.executeOrder(orderId);
