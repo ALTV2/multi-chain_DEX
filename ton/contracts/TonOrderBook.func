@@ -1,0 +1,137 @@
+;; Импорт стандартной библиотеки
+#include "stdlib.fc";
+
+;; Константы для операций
+const int OP_PLACE_ORDER = 1;
+const int OP_CANCEL_ORDER = 2;
+const int OP_EXECUTE_ORDER = 3;
+
+;; Функция сериализации ордера в клетку
+cell serialize_order(slice seller, slice token, int amount, int price, int active) {
+    var builder = begin_cell();
+    builder = builder.store_slice(seller);    ;; Адрес продавца (256 бит)
+    builder = builder.store_slice(token);     ;; Адрес токена Jetton (256 бит)
+    builder = builder.store_uint(amount, 64); ;; Количество токенов
+    builder = builder.store_uint(price, 64);  ;; Цена в TON
+    builder = builder.store_uint(active, 1);  ;; Флаг активности (1 = активен)
+    return builder.end_cell();
+}
+
+;; Функция десериализации ордера из клетки
+(slice, slice, int, int, int) deserialize_order(cell order_cell) {
+    var parser = order_cell.begin_parse();
+    slice seller = parser~load_slice(256); ;; Адрес продавца
+    slice token = parser~load_slice(256);  ;; Адрес токена
+    int amount = parser~load_uint(64);     ;; Количество токенов
+    int price = parser~load_uint(64);      ;; Цена
+    int active = parser~load_uint(1);      ;; Флаг активности
+    return (seller, token, amount, price, active);
+}
+
+;; Основная функция обработки входящих сообщений
+() recv_internal(int msg_value, cell in_msg_full, slice in_msg_body) impure {
+    ;; Проверка, что тело сообщения не пустое
+    if (in_msg_body.slice_empty?()) {
+        return ();
+    }
+
+    ;; Извлечение операции
+    int op = in_msg_body~load_uint(32);
+
+    ;; Извлечение адреса отправителя
+    slice sender = in_msg_full~load_slice(256);
+
+    ;; Загрузка данных контракта (словарь ордеров)
+    cell data = get_data();
+    var orders_dict = data.begin_parse().load_dict();
+
+    ;; Обработка операций
+    if (op == OP_PLACE_ORDER) {
+        ;; Размещение ордера
+        ;; Формат: op (32 бита), token (256 бит), amount (64 бита), price (64 бита)
+        slice token = in_msg_body~load_slice(256);
+        int amount = in_msg_body~load_uint(64);
+        int price = in_msg_body~load_uint(64);
+
+        ;; Генерация ID ордера (по размеру словаря)
+        int order_id = orders_dict.dict_size();
+
+        ;; Сериализация ордера
+        cell order_cell = serialize_order(sender, token, amount, price, 1);
+
+        ;; Сохранение ордера в словаре
+        orders_dict~dict_set(order_id, order_cell);
+
+        ;; Обновление данных контракта
+        set_data(begin_cell().store_dict(orders_dict).end_cell());
+    }
+    elseif (op == OP_CANCEL_ORDER) {
+        ;; Отмена ордера
+        ;; Формат: op (32 бита), order_id (64 бита)
+        int order_id = in_msg_body~load_uint(64);
+
+        ;; Получение ордера
+        cell order_cell = orders_dict~dict_get(order_id);
+        require(order_cell.cell_ok?(), "Order not found");
+
+        ;; Десериализация ордера
+        (slice seller, slice token, int amount, int price, int active) = deserialize_order(order_cell);
+        require(active == 1, "Order already inactive");
+        require(seller == sender, "Not your order");
+
+        ;; Обновление ордера (деактивация)
+        cell updated_order = serialize_order(seller, token, amount, price, 0);
+        orders_dict~dict_set(order_id, updated_order);
+
+        ;; Возврат токенов продавцу (сообщение контракту Jetton)
+        var transfer_msg = begin_cell()
+            .store_uint(0x18, 6)  ;; Флаги сообщения
+            .store_slice(seller)  ;; Получатель
+            .store_uint(amount, 64) ;; Количество токенов
+            .store_uint(0, 1)     ;; Дополнительные флаги
+            .end_cell();
+        send_raw_message(token, transfer_msg, 64);
+
+        ;; Обновление данных контракта
+        set_data(begin_cell().store_dict(orders_dict).end_cell());
+    }
+    elseif (op == OP_EXECUTE_ORDER) {
+        ;; Исполнение ордера
+        ;; Формат: op (32 бита), order_id (64 бита)
+        int order_id = in_msg_body~load_uint(64);
+
+        ;; Получение ордера
+        cell order_cell = orders_dict~dict_get(order_id);
+        require(order_cell.cell_ok?(), "Order not found");
+
+        ;; Десериализация ордера
+        (slice seller, slice token, int amount, int price, int active) = deserialize_order(order_cell);
+        require(active == 1, "Order not active");
+        require(msg_value >= price, "Insufficient TON");
+
+        ;; Деактивация ордера
+        cell updated_order = serialize_order(seller, token, amount, price, 0);
+        orders_dict~dict_set(order_id, updated_order);
+
+        ;; Перевод TON продавцу
+        var payment_msg = begin_cell()
+            .store_uint(0x18, 6)  ;; Флаги
+            .store_slice(seller)  ;; Получатель
+            .store_uint(price, 64) ;; Количество TON
+            .store_uint(0, 1)     ;; Дополнительные флаги
+            .end_cell();
+        send_raw_message(seller, payment_msg, 64);
+
+        ;; Перевод токенов покупателю
+        var transfer_msg = begin_cell()
+            .store_uint(0x18, 6)  ;; Флаги
+            .store_slice(sender)  ;; Получатель
+            .store_uint(amount, 64) ;; Количество токенов
+            .store_uint(0, 1)     ;; Дополнительные флаги
+            .end_cell();
+        send_raw_message(token, transfer_msg, 64);
+
+        ;; Обновление данных контракта
+        set_data(begin_cell().store_dict(orders_dict).end_cell());
+    }
+}
