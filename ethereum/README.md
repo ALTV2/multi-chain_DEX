@@ -31,3 +31,6 @@ npx hardhat clean
 ```shell
 npx hardhat test
 ```
+
+
+///Закинуть на мейн нет ефир и получит на тестовой сети его через кран https://www.alchemy.com/faucets/ethereum-sepolia
