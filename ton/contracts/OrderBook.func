@@ -1,0 +1,185 @@
+#include "stdlib.fc";
+
+() recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+    if (in_msg_body.slice_empty?()) {
+        return ();
+    }
+
+    int op = in_msg_body~load_uint(32);
+    slice sender = in_msg_full~load_msg_sender();
+    int sender_address = sender~load_address();
+
+    cell data = get_data_begin();
+    int owner = data~load_address();
+    int trade_contract = data~load_address();
+    int token_manager = data~load_address();
+    int order_counter = data~load_uint(256);
+    cell orders = data~load_ref();
+
+    ;; Создание ордера (op = 1)
+    if (op == 1) {
+        int token_to_sell = in_msg_body~load_address();
+        int token_to_buy = in_msg_body~load_address();
+        int sell_amount = in_msg_body~load_uint(256);
+        int buy_amount = in_msg_body~load_uint(256);
+
+        throw_unless(101, sell_amount > 0 && buy_amount > 0);
+        throw_unless(102, is_supported(token_to_sell, get_supported_tokens(token_manager)));
+        throw_unless(103, is_supported(token_to_buy, get_supported_tokens(token_manager)));
+
+        order_counter += 1;
+        int order_id = order_counter;
+
+        cell order = begin_cell()
+            .store_uint(order_id, 256)
+            .store_address(sender_address)
+            .store_address(token_to_sell)
+            .store_address(token_to_buy)
+            .store_uint(sell_amount, 256)
+            .store_uint(buy_amount, 256)
+            .store_uint(1, 1) ;; active = true
+        .end_cell();
+
+        cell new_orders = begin_cell()
+            .store_dict(orders)
+            .store_uint(order_id, 256)
+            .store_ref(order)
+        .end_cell();
+
+        save_data(begin_cell()
+            .store_address(owner)
+            .store_address(trade_contract)
+            .store_address(token_manager)
+            .store_uint(order_counter, 256)
+            .store_ref(new_orders)
+        .end_cell());
+
+        ;; Запрос перевода токенов
+        send_raw_message(
+            token_to_sell,
+            0x18,
+            begin_cell()
+                .store_uint(1, 32) ;; op = 1 (перевод)
+                .store_uint(0, 64)
+                .store_uint(sell_amount, 256)
+                .store_address(my_address())
+            .end_cell(),
+            msg_value / 2
+        );
+    }
+
+    ;; Отмена ордера (op = 2)
+    if (op == 2) {
+        int order_id = in_msg_body~load_uint(256);
+        slice order = orders~dict_get_ref(order_id, 256);
+        throw_unless(104, order.slice_refs?());
+
+        int creator = order~load_address();
+        int token_to_sell = order~load_address();
+        int sell_amount = order~load_uint(256);
+        int active = order~load_uint(1);
+
+        throw_unless(105, active == 1);
+        throw_unless(106, creator == sender_address);
+
+        cell new_orders = begin_cell()
+            .store_dict(orders)
+            .store_uint(order_id, 256)
+            .store_ref(begin_cell()
+                .store_uint(order_id, 256)
+                .store_address(creator)
+                .store_address(token_to_sell)
+                .store_address(order~load_address()) ;; token_to_buy
+                .store_uint(sell_amount, 256)
+                .store_uint(order~load_uint(256), 256) ;; buy_amount
+                .store_uint(0, 1) ;; active = false
+            .end_cell())
+        .end_cell();
+
+        save_data(begin_cell()
+            .store_address(owner)
+            .store_address(trade_contract)
+            .store_address(token_manager)
+            .store_uint(order_counter, 256)
+            .store_ref(new_orders)
+        .end_cell());
+
+        send_raw_message(
+            token_to_sell,
+            0x18,
+            begin_cell()
+                .store_uint(1, 32)
+                .store_uint(0, 64)
+                .store_uint(sell_amount, 256)
+                .store_address(creator)
+            .end_cell(),
+            msg_value / 2
+        );
+    }
+
+    ;; Деактивация ордера (op = 3)
+    if (op == 3 && sender_address == trade_contract) {
+        int order_id = in_msg_body~load_uint(256);
+        slice order = orders~dict_get_ref(order_id, 256);
+        throw_unless(107, order.slice_refs?());
+
+        int active = order~load_uint(1);
+        throw_unless(108, active == 1);
+
+        cell new_orders = begin_cell()
+            .store_dict(orders)
+            .store_uint(order_id, 256)
+            .store_ref(begin_cell()
+                .store_uint(order_id, 256)
+                .store_address(order~load_address()) ;; creator
+                .store_address(order~load_address()) ;; token_to_sell
+                .store_address(order~load_address()) ;; token_to_buy
+                .store_uint(order~load_uint(256), 256) ;; sell_amount
+                .store_uint(order~load_uint(256), 256) ;; buy_amount
+                .store_uint(0, 1) ;; active = false
+            .end_cell())
+        .end_cell();
+
+        save_data(begin_cell()
+            .store_address(owner)
+            .store_address(trade_contract)
+            .store_address(token_manager)
+            .store_uint(order_counter, 256)
+            .store_ref(new_orders)
+        .end_cell());
+    }
+
+    ;; Перемещение токенов в Trade (op = 4)
+    if (op == 4 && sender_address == trade_contract) {
+        int order_id = in_msg_body~load_uint(256);
+        slice order = orders~dict_get_ref(order_id, 256);
+        throw_unless(109, order.slice_refs?());
+
+        int token_to_sell = order~load_address();
+        int sell_amount = order~load_uint(256);
+        int active = order~load_uint(1);
+        throw_unless(110, active == 1);
+
+        send_raw_message(
+            token_to_sell,
+            0x18,
+            begin_cell()
+                .store_uint(1, 32)
+                .store_uint(0, 64)
+                .store_uint(sell_amount, 256)
+                .store_address(trade_contract)
+            .end_cell(),
+            msg_value / 2
+        );
+    }
+}
+
+cell get_supported_tokens(int token_manager) inline {
+    ;; Здесь предполагается вызов внешнего геттера, но для упрощения возвращаем фиктивные данные
+    return begin_cell().end_cell();
+}
+
+int is_supported(int token, cell supported_tokens) inline {
+    slice ds = supported_tokens~load_dict();
+    return ds~dict_get_uint(token, 256) == 1;
+}

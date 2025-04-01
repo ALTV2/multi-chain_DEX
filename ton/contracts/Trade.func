@@ -1,0 +1,82 @@
+#include "stdlib.fc";
+
+() recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+    if (in_msg_body.slice_empty?()) {
+        return ();
+    }
+
+    int op = in_msg_body~load_uint(32);
+    slice sender = in_msg_full~load_msg_sender();
+    int sender_address = sender~load_address();
+
+    cell data = get_data_begin();
+    int order_book = data~load_address();
+
+    ;; Исполнение ордера (op = 1)
+    if (op == 1) {
+        int order_id = in_msg_body~load_uint(256);
+
+        ;; Запрос данных ордера (в TON это упрощено для примера)
+        cell order_data = begin_cell().end_cell(); ;; Здесь должен быть вызов геттера
+        slice order = order_data~load_dict_ref(order_id, 256);
+        int creator = order~load_address();
+        int token_to_sell = order~load_address();
+        int token_to_buy = order~load_address();
+        int sell_amount = order~load_uint(256);
+        int buy_amount = order~load_uint(256);
+        int active = order~load_uint(1);
+
+        throw_unless(111, active == 1);
+        throw_unless(112, creator != sender_address);
+
+        ;; Перевод токенов покупателю
+        send_raw_message(
+            token_to_buy,
+            0x18,
+            begin_cell()
+                .store_uint(1, 32)
+                .store_uint(0, 64)
+                .store_uint(buy_amount, 256)
+                .store_address(creator)
+            .end_cell(),
+            msg_value / 3
+        );
+
+        ;; Запрос перемещения токенов от OrderBook
+        send_raw_message(
+            order_book,
+            0x18,
+            begin_cell()
+                .store_uint(4, 32) ;; op = 4 (moveTokensToTradeContract)
+                .store_uint(0, 64)
+                .store_uint(order_id, 256)
+            .end_cell(),
+            msg_value / 3
+        );
+
+        ;; Перевод токенов исполнителю
+        send_raw_message(
+            token_to_sell,
+            0x18,
+            begin_cell()
+                .store_uint(1, 32)
+                .store_uint(0, 64)
+                .store_uint(sell_amount, 256)
+                .store_address(sender_address)
+            .end_cell(),
+            msg_value / 3
+        );
+
+        ;; Деактивация ордера
+        send_raw_message(
+            order_book,
+            0x18,
+            begin_cell()
+                .store_uint(3, 32) ;; op = 3 (deactivateOrder)
+                .store_uint(0, 64)
+                .store_uint(order_id, 256)
+            .end_cell(),
+            0
+        );
+    }
+}

@@ -1,0 +1,52 @@
+#include "stdlib.fc";
+
+() recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+    if (in_msg_body.slice_empty?()) {
+        return ();
+    }
+
+    int op = in_msg_body~load_uint(32);
+    slice sender = in_msg_full~load_msg_sender();
+    int sender_address = sender~load_address();
+
+    cell data = get_data_begin();
+    int owner = data~load_address();
+    cell supported_tokens = data~load_ref();
+
+    throw_unless(100, sender_address == owner); ;; Только владелец
+
+    ;; Добавление токена (op = 1)
+    if (op == 1) {
+        int token_address = in_msg_body~load_address();
+        cell new_tokens = begin_cell()
+            .store_dict(supported_tokens)
+            .store_uint(token_address, 256)
+            .store_uint(1, 1) ;; Поддерживается
+        .end_cell();
+
+        save_data(begin_cell()
+            .store_address(owner)
+            .store_ref(new_tokens)
+        .end_cell());
+    }
+
+    ;; Удаление токена (op = 2)
+    if (op == 2) {
+        int token_address = in_msg_body~load_address();
+        cell new_tokens = begin_cell()
+            .store_dict(supported_tokens)
+            .store_uint(token_address, 256)
+            .store_uint(0, 1) ;; Не поддерживается
+        .end_cell();
+
+        save_data(begin_cell()
+            .store_address(owner)
+            .store_ref(new_tokens)
+        .end_cell());
+    }
+}
+
+int is_supported(int token_address, cell supported_tokens) inline {
+    slice ds = supported_tokens~load_dict();
+    return ds~dict_get_uint(token_address, 256) == 1;
+}

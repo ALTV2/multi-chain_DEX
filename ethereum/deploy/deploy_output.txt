@@ -1,0 +1,7 @@
+Деплой контрактов с аккаунта: 0x7C26774eC3c296510f73abFB04E6e5892E372CF9
+TokenManager задеплоен по адресу: 0x22763589e1dd35d1FE86c51B0593E71677d72054
+OrderBook задеплоен по адресу: 0xaE925718310E5aDF3Fa2d98c186BfbBEcC0D7cD5
+Trade задеплоен по адресу: 0x7ec2b7D6F0492De75620C105ba67e6119CAAB754
+Test Token A (TSTA) задеплоен по адресу: 0x3d857Fc3510246A050817C29ea7C434ab7EbA81A
+Test Token B (TSTB) задеплоен по адресу: 0x20E2434C1f611D3E6C1D2947061ede1A16d04d17
+1000 TSTA и 1000 TSTB заминчены для: 0x7C26774eC3c296510f73abFB04E6e5892E372CF9

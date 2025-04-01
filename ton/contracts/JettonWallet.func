@@ -1,0 +1,64 @@
+#include "stdlib.fc";
+
+() recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+    if (in_msg_body.slice_empty?()) {
+        return ();
+    }
+
+    int op = in_msg_body~load_uint(32);
+    slice sender = in_msg_full~load_msg_sender();
+    int sender_address = sender~load_address();
+
+    cell data = get_data_begin();
+    int balance = data~load_uint(256);
+    int owner = data~load_address();
+    cell master = data~load_ref();
+
+    ;; Инициализация кошелька (op = 0)
+    if (op == 0) {
+        int jetton_master = in_msg_body~load_address();
+        save_data(begin_cell()
+            .store_uint(0, 256) ;; Начальный баланс
+            .store_address(sender_address)
+            .store_ref(master)
+            .store_address(jetton_master)
+        .end_cell());
+        return ();
+    }
+
+    ;; Перевод токенов (op = 1)
+    if (op == 1 && sender_address == owner) {
+        int amount = in_msg_body~load_uint(256);
+        int dest_address = in_msg_body~load_address();
+        throw_unless(101, balance >= amount);
+
+        save_data(begin_cell()
+            .store_uint(balance - amount, 256)
+            .store_address(owner)
+            .store_ref(master)
+            .store_address(data~load_address())
+        .end_cell());
+
+        send_raw_message(
+            dest_address,
+            0x18,
+            begin_cell()
+                .store_uint(2, 32) ;; op = 2 (увеличить баланс)
+                .store_uint(0, 64)
+                .store_uint(amount, 256)
+            .end_cell(),
+            msg_value / 2
+        );
+    }
+
+    ;; Увеличение баланса (op = 2)
+    if (op == 2) {
+        int amount = in_msg_body~load_uint(256);
+        save_data(begin_cell()
+            .store_uint(balance + amount, 256)
+            .store_address(owner)
+            .store_ref(master)
+            .store_address(data~load_address())
+        .end_cell());
+    }
+}
