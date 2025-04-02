@@ -1,106 +1,175 @@
 body {
-  font-family: 'Arial', sans-serif;
-  background-color: #f0f2f5;
+  font-family: "Arial", sans-serif;
+  background: linear-gradient(135deg, #1a1a1a 0%, #2a1a3a 100%);
   margin: 0;
   padding: 0;
+  min-height: 100vh;
+  color: #e0e0e0;
 }
 
 .App {
-  max-width: 1000px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 30px;
 }
 
 header {
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 50px;
+  padding: 20px;
+  background: linear-gradient(90deg, rgba(40, 20, 60, 0.8), rgba(20, 10, 40, 0.8));
+  border-radius: 15px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
 }
 
 header h1 {
-  color: #1a73e8;
-  font-size: 2.5em;
+  color: #bb86fc;
+  font-size: 2.8em;
   margin: 0;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.wallet-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
 }
 
 header p {
-  color: #555;
-  font-size: 1.1em;
+  color: #cfcfcf;
+  font-size: 1.2em;
+  margin: 0;
 }
 
 button {
-  background-color: #1a73e8;
+  background: linear-gradient(45deg, #bb86fc, #6200ea);
   color: white;
   border: none;
-  padding: 10px 20px;
-  border-radius: 5px;
+  padding: 12px 25px;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 1em;
-  transition: background-color 0.3s;
+  font-size: 1.1em;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 10px rgba(187, 134, 252, 0.3);
 }
 
-button:hover {
-  background-color: #1557b0;
+button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(187, 134, 252, 0.5);
 }
 
 button:disabled {
-  background-color: #ccc;
+  background: #4a4a4a;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
-.create-order {
-  background-color: white;
-  padding: 20px;
+.error {
+  background: linear-gradient(90deg, rgba(229, 57, 53, 0.2), rgba(244, 67, 54, 0.1));
+  color: #ff8a80;
+  padding: 15px;
   border-radius: 10px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-  margin-bottom: 40px;
+  margin: 20px 0;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
-.create-order h2 {
-  color: #333;
+.create-order,
+.order-book,
+.token-manager {
+  background: linear-gradient(135deg, rgba(30, 20, 50, 0.9), rgba(20, 10, 40, 0.9));
+  padding: 25px;
+  border-radius: 15px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  margin-bottom: 50px;
+  transition: transform 0.3s ease;
+}
+
+.create-order:hover,
+.order-book:hover,
+.token-manager:hover {
+  transform: translateY(-5px);
+}
+
+.create-order h2,
+.order-book h2,
+.token-manager h2 {
+  color: #bb86fc;
   margin-top: 0;
+  font-size: 1.8em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .form {
-  display: flex;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 15px;
   align-items: center;
 }
 
-select, input {
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 5px;
+select,
+input {
+  padding: 12px;
+  border: 1px solid #6200ea;
+  border-radius: 8px;
   font-size: 1em;
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(40, 30, 60, 0.7);
+  color: #e0e0e0;
+  transition: all 0.3s ease;
 }
 
-.order-book {
-  background-color: white;
-  padding: 20px;
-  border-radius: 10px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+select:focus,
+input:focus {
+  border-color: #bb86fc;
+  box-shadow: 0 0 8px rgba(187, 134, 252, 0.5);
+  outline: none;
 }
 
-.order-book h2 {
-  color: #333;
-  margin-top: 0;
+.token-manager .token-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 0;
+  border-bottom: 1px solid rgba(98, 0, 234, 0.2);
+}
+
+.token-manager .token-item span {
+  color: #cfcfcf;
 }
 
 table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0 10px;
 }
 
-th, td {
-  padding: 12px;
+th,
+td {
+  padding: 15px;
   text-align: left;
-  border-bottom: 1px solid #ddd;
 }
 
 th {
-  background-color: #f5f7fa;
-  color: #333;
+  background: linear-gradient(90deg, #6200ea, #3700b3);
+  color: #e0e0e0;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
-tr:hover {
-  background-color: #f9f9f9;
+td {
+  background: rgba(40, 30, 60, 0.7);
+  color: #cfcfcf;
+  border-radius: 8px;
+}
+
+tr {
+  transition: all 0.3s ease;
+}
+
+tr:hover td {
+  background: rgba(60, 40, 90, 0.9);
+  transform: scale(1.02);
 }

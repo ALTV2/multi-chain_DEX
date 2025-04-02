@@ -36,8 +36,9 @@ npx hardhat test
 ```shell
 npx hardhat run deploy/deploy.js --network sepolia
 ```
-до птятницы - идеальный ethereum dex
-на выходных иедеальный TON dex
-До четверга дружим их
+```shell
+npx hardhat run deploy/setTradeContract.js --network sepolia
+```
+// кран https://www.alchemy.com/faucets/ethereum-sepolia
 
-///Закинуть на мейн нет ефир и получит на тестовой сети его через кран https://www.alchemy.com/faucets/ethereum-sepolia
+// нужно добавить возможность отключать апрувы токинов в ethereum

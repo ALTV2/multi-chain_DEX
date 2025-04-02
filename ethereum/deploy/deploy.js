@@ -32,6 +32,8 @@ async function main() {
   await tokenA.mint(deployer.address, ethers.parseEther("1000"));
   await tokenB.mint(deployer.address, ethers.parseEther("1000"));
   console.log("1000 TSTA и 1000 TSTB заминчены для:", deployer.address);
+
+  // нужно вызывать метод setTradeContract В ордер буки и передать адрес контракта
 }
 
 main()
