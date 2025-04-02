@@ -151,14 +151,53 @@ function App() {
       const trade = new Contract(CONTRACT_ADDRESSES.TRADE, TradeABI.abi, signer);
       const orderBook = new Contract(CONTRACT_ADDRESSES.ORDERBOOK, OrderBookABI.abi, provider);
       const order = await orderBook.orders(orderId);
+
+      if (!order.active) throw new Error("Order is not active");
+      if (order.creator.toLowerCase() === account.toLowerCase()) {
+        throw new Error("Cannot execute your own order");
+      }
+
       const tokenToBuy = new Contract(order.tokenToBuy, ERC20ABI.abi, signer);
-      const approveTx = await tokenToBuy.approve(CONTRACT_ADDRESSES.TRADE, order.buyAmount);
-      await approveTx.wait();
+      const balance = await tokenToBuy.balanceOf(account);
+      const allowance = await tokenToBuy.allowance(account, CONTRACT_ADDRESSES.TRADE);
+
+      if (balance < order.buyAmount) {
+        throw new Error(`Insufficient ${TOKENS[Object.keys(TOKENS).find(k => TOKENS[k].address === order.tokenToBuy)]?.symbol} balance`);
+      }
+      if (allowance < order.buyAmount) {
+        const approveTx = await tokenToBuy.approve(CONTRACT_ADDRESSES.TRADE, order.buyAmount);
+        await approveTx.wait();
+      }
+
       const tx = await trade.executeOrder(orderId);
       await tx.wait();
       loadOrders();
     } catch (err) {
-      setError("Failed to execute order: " + err.message);
+      setError(`Failed to execute order: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cancelOrder = async (orderId) => {
+    if (!signer) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const orderBook = new Contract(CONTRACT_ADDRESSES.ORDERBOOK, OrderBookABI.abi, signer);
+      const order = await orderBook.orders(orderId);
+
+      if (!order.active) throw new Error("Order is already inactive");
+      if (order.creator.toLowerCase() !== account.toLowerCase()) {
+        throw new Error("You can only cancel your own orders");
+      }
+
+      const tx = await orderBook.cancelOrder(orderId);
+      await tx.wait();
+      setError("Order cancelled successfully!");
+      loadOrders();
+    } catch (err) {
+      setError(`Failed to cancel order: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -182,7 +221,7 @@ function App() {
       loadOrders();
       checkSupportedTokens();
     }
-  }, [ provider, loadOrders, checkSupportedTokens]);
+  }, [provider, loadOrders, checkSupportedTokens]);
 
   return (
     <div className="App">
@@ -272,7 +311,7 @@ function App() {
                 <th>Sell Amount</th>
                 <th>Buy Token</th>
                 <th>Buy Amount</th>
-                <th>Action</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -290,6 +329,15 @@ function App() {
                     >
                       Execute
                     </button>
+                    {order.creator.toLowerCase() === account?.toLowerCase() && (
+                      <button
+                        onClick={() => cancelOrder(order.id)}
+                        disabled={!account || loading}
+                        className="cancel-button"
+                      >
+                        Cancel
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
