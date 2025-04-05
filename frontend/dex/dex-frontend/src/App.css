@@ -183,3 +183,33 @@ tr:hover td {
   background: rgba(60, 40, 90, 0.9);
   transform: scale(1.02);
 }
+
+.success {
+  background-color: #d4edda;
+  color: #155724;
+  padding: 10px;
+  margin: 10px 0;
+  border-radius: 5px;
+}
+
+.owner-controls {
+  margin: 20px 0;
+  padding: 15px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+.restriction-toggle {
+  margin-bottom: 15px;
+}
+
+.token-manager h3 {
+  margin-top: 0;
+}
+
+.token-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 10px 0;
+}

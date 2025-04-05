@@ -1,25 +1,41 @@
+// mint.js
 const { ethers } = require("hardhat");
 
 async function main() {
-    // Адрес уже задеплоенного контракта
-    const contractAddress = "0x20E2434C1f611D3E6C1D2947061ede1A16d04d17";
+  const [deployer] = await ethers.getSigners();
+  console.log("Минтинг токенов с аккаунта:", deployer.address);
+  console.log("Баланс деплоера:", ethers.formatEther(await ethers.provider.getBalance(deployer.address)), "ETH");
 
-    // Подключение к контракту
-    const Contract = await ethers.getContractFactory("TestERC20");
-    const contract = await Contract.attach(contractAddress);
+  // Адреса контрактов (нужно заменить на реальные после деплоя)
+  const tokenAAddress = "YOUR_TSTA_ADDRESS_HERE"; // Замените после деплоя
+  const tokenBAddress = "YOUR_TSTB_ADDRESS_HERE"; // Замените после деплоя
 
-    // Сумма для минтинга (предположим, это 10 токенов)
-    const amount = ethers.parseUnits("100", 18);
-    // Вызов функции mint (пример с параметрами)
-    const tx = await contract.mint("0x64Ab3C77F89a46aFB77E5BD4Fe54Cbe593fDF6ed", amount);
-    await tx.wait();
+  // Подключение к контрактам TSTA и TSTB
+  const TestERC20 = await ethers.getContractFactory("TestERC20");
+  const tokenA = TestERC20.attach(tokenAAddress);
+  const tokenB = TestERC20.attach(tokenBAddress);
 
-    console.log("Mint выполнен, транзакция:", tx.hash);
+  // Минтинг токенов для деплоера (1000 единиц каждого)
+  const mintAmount = ethers.parseEther("1000");
+
+  const mintTokenATx = await tokenA.mint(deployer.address, mintAmount);
+  await mintTokenATx.wait();
+  console.log("1000 TSTA заминчены для:", deployer.address, "Транзакция:", mintTokenATx.hash);
+
+  const mintTokenBTx = await tokenB.mint(deployer.address, mintAmount);
+  await mintTokenBTx.wait();
+  console.log("1000 TSTB заминчены для:", deployer.address, "Транзакция:", mintTokenBTx.hash);
+
+  // Проверка балансов токенов
+  const balanceA = await tokenA.balanceOf(deployer.address);
+  const balanceB = await tokenB.balanceOf(deployer.address);
+  console.log("Баланс TSTA деплоера:", ethers.formatEther(balanceA));
+  console.log("Баланс TSTB деплоера:", ethers.formatEther(balanceB));
 }
 
 main()
-    .then(() => process.exit(0))
-    .catch((error) => {
-        console.error(error);
-        process.exit(1);
-    });
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error("Ошибка при минтинге:", error);
+    process.exit(1);
+  });

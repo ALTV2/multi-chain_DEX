@@ -10,3 +10,8 @@ fornt - startUp (command is sudo npm start)
 4 test dex
 5 use visial studio code (add all extentions)
 5 go to Ton 
+
+
+Остановились на прокрке работы
+контраты задеплоены 
+фронт запущен

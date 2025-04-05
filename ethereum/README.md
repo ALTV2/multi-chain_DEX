@@ -34,7 +34,7 @@ npx hardhat test
 
 //deploy contracts
 ```shell
-npx hardhat run deploy/deploy.js --network sepolia
+sudo npx hardhat run deploy/deploy.js --network sepolia
 ```
 ```shell
 npx hardhat run deploy/setTradeContract.js --network sepolia
