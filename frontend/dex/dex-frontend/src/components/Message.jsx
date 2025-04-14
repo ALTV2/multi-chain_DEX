@@ -4,7 +4,7 @@ const Message = ({ message }) => {
   if (!message) return null;
 
   return (
-    <div className={message.includes("successfully") ? "success" : "error"}>
+    <div className={message.includes('successfully') ? 'success' : 'error'}>
       {message}
     </div>
   );

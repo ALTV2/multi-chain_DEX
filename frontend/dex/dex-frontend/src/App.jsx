@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
 import Header from './components/Header';
 import OrderCreation from './components/OrderCreation';
@@ -20,7 +20,7 @@ function App() {
     createOrder: createOrderFn,
     executeOrder,
     cancelOrder,
-    setError: setOrdersError
+    setError: setOrdersError,
   } = useOrders(provider, signer, account);
   const {
     isOwner,
@@ -33,24 +33,30 @@ function App() {
     checkSupportedTokens,
     toggleTokenRestriction,
     addToken,
-    setError: setTokenError
+    setError: setTokenError,
   } = useTokenManager(provider, signer, account);
 
   const [sellToken, setSellToken] = useState(TOKENS.ETH.address);
   const [buyToken, setBuyToken] = useState(TOKENS.TOKEN_A.address);
-  const [sellAmount, setSellAmount] = useState("");
-  const [buyAmount, setBuyAmount] = useState("");
+  const [sellAmount, setSellAmount] = useState('');
+  const [buyAmount, setBuyAmount] = useState('');
 
   const loading = ordersLoading || tokenLoading;
   const error = ordersError || tokenError;
 
-  const createOrder = () => {
-    createOrderFn(sellToken, buyToken, sellAmount, buyAmount)
-      .then(() => {
-        setSellAmount("");
-        setBuyAmount("");
-      });
-  };
+  const handleCreateOrder = useCallback(async () => {
+    if (!sellAmount || !buyAmount) {
+      setOrdersError('Please enter both sell and buy amounts');
+      return;
+    }
+    try {
+      await createOrderFn(sellToken, buyToken, sellAmount, buyAmount);
+      setSellAmount('');
+      setBuyAmount('');
+    } catch (err) {
+      setOrdersError(`Failed to create order: ${err.message}`);
+    }
+  }, [sellToken, buyToken, sellAmount, buyAmount, createOrderFn, setOrdersError]);
 
   useEffect(() => {
     if (provider && account) {
@@ -62,44 +68,52 @@ function App() {
   }, [provider, account, loadOrders, checkOwnership, checkRestrictTokens, checkSupportedTokens]);
 
   return (
-    <div className="App">
-      <Header
-        account={account}
-        connectWallet={connectWallet}
-        disconnectWallet={disconnectWallet}
-        loading={loading}
-      />
-      <Message message={error} />
-      <OwnerControls
-        isOwner={isOwner}
-        restrictTokens={restrictTokens}
-        toggleTokenRestriction={toggleTokenRestriction}
-        loading={loading}
-        supportedTokens={supportedTokens}
-        addToken={addToken}
-      />
-      <OrderCreation
-        sellToken={sellToken}
-        setSellToken={setSellToken}
-        buyToken={buyToken}
-        setBuyToken={setBuyToken}
-        sellAmount={sellAmount}
-        setSellAmount={setSellAmount}
-        buyAmount={buyAmount}
-        setBuyAmount={setBuyAmount}
-        createOrder={createOrder}
-        loading={loading}
-        account={account}
-        restrictTokens={restrictTokens}
-        supportedTokens={supportedTokens}
-      />
-      <OrderBook
-        orders={orders}
-        executeOrder={executeOrder}
-        cancelOrder={cancelOrder}
-        loading={loading}
-        account={account}
-      />
+    <div className="app-container">
+      <div className="content-wrapper">
+        <Header
+          account={account}
+          connectWallet={connectWallet}
+          disconnectWallet={disconnectWallet}
+          loading={loading}
+        />
+        {error && <Message message={error} />}
+        <div className="section">
+          <OwnerControls
+            isOwner={isOwner}
+            restrictTokens={restrictTokens}
+            toggleTokenRestriction={toggleTokenRestriction}
+            loading={loading}
+            supportedTokens={supportedTokens}
+            addToken={addToken}
+          />
+        </div>
+        <div className="section">
+          <OrderCreation
+            sellToken={sellToken}
+            setSellToken={setSellToken}
+            buyToken={buyToken}
+            setBuyToken={setBuyToken}
+            sellAmount={sellAmount}
+            setSellAmount={setSellAmount}
+            buyAmount={buyAmount}
+            setBuyAmount={setBuyAmount}
+            createOrder={handleCreateOrder}
+            loading={loading}
+            account={account}
+            restrictTokens={restrictTokens}
+            supportedTokens={supportedTokens}
+          />
+        </div>
+        <div className="section">
+          <OrderBook
+            orders={orders}
+            executeOrder={executeOrder}
+            cancelOrder={cancelOrder}
+            loading={loading}
+            account={account}
+          />
+        </div>
+      </div>
     </div>
   );
 }
