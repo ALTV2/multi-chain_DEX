@@ -1,15 +1,17 @@
-// src/hooks/useTokenManager.js
-import { useState, useCallback } from 'react';
-import { TOKENS } from '../constants/blockchains'; // Обновлённый импорт
+import { useState, useCallback, useEffect } from 'react';
+import { Contract } from 'ethers';
 import { useContract } from './useContract';
+import { TokenManagerABI } from '../constants/abis';
 
+// Хук для управления токенами и настройками контракта
 export const useTokenManager = (provider, signer, account) => {
   const [isOwner, setIsOwner] = useState(false);
   const [restrictTokens, setRestrictTokens] = useState(false);
   const [supportedTokens, setSupportedTokens] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const { orderBook, tokenManager } = useContract(provider, signer);
+  const { orderBook, error: contractError } = useContract(provider, signer);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const checkOwnership = useCallback(async () => {
     if (!orderBook || !account) return;
@@ -17,69 +19,84 @@ export const useTokenManager = (provider, signer, account) => {
       const owner = await orderBook.owner();
       setIsOwner(owner.toLowerCase() === account.toLowerCase());
     } catch (err) {
-      console.error("Error checking ownership:", err);
+      console.error('Error checking ownership:', err);
+      setError('Failed to check ownership: ' + err.message);
     }
   }, [orderBook, account]);
 
   const checkRestrictTokens = useCallback(async () => {
     if (!orderBook) return;
     try {
-      const restricted = await orderBook.restrictTokens();
-      setRestrictTokens(restricted);
+      const restrict = await orderBook.restrictTokens();
+      setRestrictTokens(restrict);
     } catch (err) {
-      console.error("Error checking restrictTokens:", err);
+      console.error('Error checking restrictTokens:', err);
+      setError('Failed to check restrictTokens: ' + err.message);
     }
   }, [orderBook]);
 
   const checkSupportedTokens = useCallback(async () => {
-    if (!tokenManager) return;
+    if (!orderBook || !signer) return;
     try {
-      const supported = {};
-      for (const token of Object.values(TOKENS)) {
-        if (token.address !== TOKENS.ETH.address) {
-          supported[token.address] = await tokenManager.supportedTokens(token.address);
-        } else {
-          supported[token.address] = true;
-        }
-      }
-      setSupportedTokens(supported);
+      const tokenManagerAddress = await orderBook.tokenManager();
+      const tokenManager = new Contract(tokenManagerAddress, TokenManagerABI, signer);
+      const tokens = await tokenManager.getSupportedTokens();
+      setSupportedTokens(Object.fromEntries(tokens.map((t) => [t, true])));
     } catch (err) {
-      console.error("Error checking supported tokens:", err);
+      console.error('Error checking supported tokens:', err);
+      setError('Failed to check supported tokens: ' + err.message);
     }
-  }, [tokenManager]);
+  }, [orderBook, signer]);
 
-  const toggleTokenRestriction = async () => {
-    if (!orderBook || !isOwner) return;
+  const toggleTokenRestriction = useCallback(async () => {
+    if (!orderBook) return;
     setLoading(true);
-    setError(null);
-    setError(null);
     try {
-      const tx = await orderBook.toggleTokenRestriction(!restrictTokens);
+      const tx = await orderBook.toggleTokenRestriction();
       await tx.wait();
-      setRestrictTokens(!restrictTokens);
-      setError("Token restriction toggled successfully!");
+      await checkRestrictTokens();
     } catch (err) {
-      setError("Failed to toggle restriction: " + err.message);
+      console.error('Error toggling token restriction:', err);
+      setError('Failed to toggle token restriction: ' + err.message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [orderBook, checkRestrictTokens]);
 
-  const addToken = async (tokenAddress) => {
-    if (!tokenManager || !isOwner || tokenAddress === TOKENS.ETH.address) return;
+  const addToken = useCallback(async (tokenAddress) => {
+    if (!orderBook) return;
     setLoading(true);
-    setError(null);
     try {
+      const tokenManagerAddress = await orderBook.tokenManager();
+      const tokenManager = new Contract(tokenManagerAddress, TokenManagerABI, signer);
       const tx = await tokenManager.addToken(tokenAddress);
       await tx.wait();
-      setError("Token added successfully!");
       await checkSupportedTokens();
     } catch (err) {
-      setError("Failed to add token: " + err.message);
+      console.error('Error adding token:', err);
+      setError('Failed to add token: ' + err.message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [orderBook, signer, checkSupportedTokens]);
+
+  // Обработка ошибок из useContract
+  useEffect(() => {
+    if (contractError) {
+      setError(contractError);
+    }
+  }, [contractError]);
+
+  // Инициализация с контролем вызовов
+  useEffect(() => {
+    if (!orderBook || !account || isInitialized) return;
+
+    setLoading(true);
+    Promise.all([checkOwnership(), checkRestrictTokens(), checkSupportedTokens()])
+      .then(() => setIsInitialized(true))
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [orderBook, account, isInitialized, checkOwnership, checkRestrictTokens, checkSupportedTokens]);
 
   return {
     isOwner,
@@ -87,11 +104,8 @@ export const useTokenManager = (provider, signer, account) => {
     supportedTokens,
     loading,
     error,
-    checkOwnership,
-    checkRestrictTokens,
-    checkSupportedTokens,
     toggleTokenRestriction,
     addToken,
-    setError
+    setError,
   };
 };

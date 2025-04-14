@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { TOKENS } from '../constants/blockchains';
 
 const OwnerControls = ({
@@ -9,6 +9,12 @@ const OwnerControls = ({
   supportedTokens,
   addToken,
 }) => {
+  const allTokens = useMemo(() => {
+    return Object.values(TOKENS)
+      .flatMap((blockchainTokens) => Object.values(blockchainTokens))
+      .filter((token) => token.address !== TOKENS.ETHEREUM.ETH.address);
+  }, []);
+
   if (!isOwner) return null;
 
   return (
@@ -34,32 +40,30 @@ const OwnerControls = ({
       <div className="token-manager">
         <h3>Manage Tokens</h3>
         <div>
-          {Object.values(TOKENS)
-            .filter((token) => token.address !== TOKENS.ETH.address)
-            .map((token) => (
-              <div key={token.address} className="token-item">
-                <div>
-                  <img src={token.icon} alt={token.symbol} className="token-icon" />
-                  <span>
-                    {token.symbol}: {supportedTokens[token.address] ? 'Supported' : 'Not Supported'}
-                  </span>
-                </div>
-                {!supportedTokens[token.address] && (
-                  <button
-                    onClick={() => addToken(token.address)}
-                    disabled={loading || !restrictTokens}
-                    className="button button-primary"
-                  >
-                    {loading ? (
-                      <>
-                        Adding <span className="spinner"></span>
-                      </>
-                    ) : 'Add Token'}
-                    <span className="tooltip">Add token to supported list</span>
-                  </button>
-                )}
+          {allTokens.map((token) => (
+            <div key={token.address} className="token-item">
+              <div>
+                <img src={token.icon} alt={token.symbol} className="token-icon" />
+                <span>
+                  {token.symbol}: {supportedTokens[token.address] ? 'Supported' : 'Not Supported'}
+                </span>
               </div>
-            ))}
+              {!supportedTokens[token.address] && (
+                <button
+                  onClick={() => addToken(token.address)}
+                  disabled={loading || !restrictTokens}
+                  className="button button-primary"
+                >
+                  {loading ? (
+                    <>
+                      Adding <span className="spinner"></span>
+                    </>
+                  ) : 'Add Token'}
+                  <span className="tooltip">Add token to supported list</span>
+                </button>
+              )}
+            </div>
+          ))}
         </div>
       </div>
     </section>

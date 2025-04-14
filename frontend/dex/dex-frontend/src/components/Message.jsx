@@ -1,8 +1,7 @@
 import React from 'react';
 
+// Компонент для отображения сообщений об ошибках или успехе
 const Message = ({ message }) => {
-  if (!message) return null;
-
   return (
     <div className={message.includes('successfully') ? 'success' : 'error'}>
       {message}
@@ -10,4 +9,4 @@ const Message = ({ message }) => {
   );
 };
 
-export default Message;
+export default React.memo(Message);

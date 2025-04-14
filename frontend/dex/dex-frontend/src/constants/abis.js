@@ -1,5 +1,9 @@
-export { default as OrderBookABI } from '../abis/OrderBook.json';
-export { default as TradeABI } from '../abis/Trade.json';
-export { default as TokenManagerABI } from '../abis/TokenManager.json';
-export { default as ERC20ABI } from '@openzeppelin/contracts/build/contracts/ERC20.json';
-//export { default as TestERC20ABI } from '../abis/TestERC20.json';
+import OrderBookArtifact from './abis/OrderBook.json';
+import TradeArtifact from './abis/Trade.json';
+import TokenManagerArtifact from './abis/TokenManager.json';
+import ERC20Artifact from '@openzeppelin/contracts/build/contracts/ERC20.json';
+
+export const OrderBookABI = OrderBookArtifact.abi;
+export const TradeABI = TradeArtifact.abi;
+export const TokenManagerABI = TokenManagerArtifact.abi;
+export const ERC20ABI = ERC20Artifact.abi;

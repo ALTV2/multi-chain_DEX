@@ -1,17 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Wallet, Mail } from 'lucide-react';
+import { toast } from 'react-toastify';
 
-const Header = ({ account, connectWallet, disconnectWallet, loading }) => {
+// Компонент заголовка с подключением кошелька и привязкой email
+const Header = ({ account, connectWallet, disconnectWallet, loading, isConnecting }) => {
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
 
-  const validateEmail = (email) => {
+  const validateEmail = useCallback((email) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return re.test(email);
-  };
+  }, []);
 
-  const handleLinkEmail = async () => {
+  const handleLinkEmail = useCallback(async () => {
     if (!validateEmail(email)) {
       setEmailError('Please enter a valid email address');
       return;
@@ -26,7 +28,7 @@ const Header = ({ account, connectWallet, disconnectWallet, loading }) => {
         body: JSON.stringify({ walletAddress: account, email }),
       });
       if (response.ok) {
-        alert('Email linked successfully!');
+        toast.success('Email linked successfully!');
         setShowEmailModal(false);
         setEmail('');
       } else {
@@ -35,28 +37,33 @@ const Header = ({ account, connectWallet, disconnectWallet, loading }) => {
     } catch (err) {
       setEmailError('Network error. Please try again.');
     }
-  };
+  }, [email, account, validateEmail]);
 
   return (
     <header className="header card">
       <h1>DEX Order Book</h1>
       <div className="wallet-info">
         {!account ? (
-          <button
-            onClick={() => connectWallet(false)}
-            disabled={loading}
-            className="button button-primary pulse"
-          >
-            <Wallet className="token-icon" />
-            {loading ? 'Connecting...' : 'Connect Wallet'}
-            <span className="tooltip">Connect your wallet</span>
-          </button>
+          <>
+            <button
+              onClick={() => connectWallet(false)}
+              disabled={loading || isConnecting}
+              className="button button-primary pulse"
+            >
+              <Wallet className="token-icon" />
+              {isConnecting ? 'Connecting...' : 'Connect Wallet'}
+              <span className="tooltip">Connect your wallet</span>
+            </button>
+            {isConnecting && (
+              <p className="info">Connecting to MetaMask... Please confirm in your wallet</p>
+            )}
+          </>
         ) : (
           <>
             <p>Connected: {account.slice(0, 6)}...{account.slice(-4)}</p>
             <button
               onClick={() => setShowEmailModal(true)}
-              disabled={loading}
+              disabled={loading || isConnecting}
               className="button button-primary"
             >
               <Mail className="token-icon" />
@@ -65,7 +72,7 @@ const Header = ({ account, connectWallet, disconnectWallet, loading }) => {
             </button>
             <button
               onClick={disconnectWallet}
-              disabled={loading}
+              disabled={loading || isConnecting}
               className="button button-danger"
             >
               Disconnect
@@ -84,6 +91,7 @@ const Header = ({ account, connectWallet, disconnectWallet, loading }) => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="input"
+              autoFocus
             />
             {emailError && <p className="error">{emailError}</p>}
             <button
@@ -106,4 +114,10 @@ const Header = ({ account, connectWallet, disconnectWallet, loading }) => {
   );
 };
 
-export default Header;
+export default React.memo(Header, (prevProps, nextProps) => {
+  return (
+    prevProps.account === nextProps.account &&
+    prevProps.loading === nextProps.loading &&
+    prevProps.isConnecting === nextProps.isConnecting
+  );
+});

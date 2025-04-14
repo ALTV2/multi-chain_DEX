@@ -1,8 +1,8 @@
-// src/hooks/useOrders.js
 import { useState, useCallback } from 'react';
 import { parseUnits } from 'ethers';
 import { TOKENS } from '../constants/blockchains';
 import { useContract } from './useContract';
+import { toast } from 'react-toastify';
 
 export const useOrders = (provider, signer, account) => {
   const [orders, setOrders] = useState([]);
@@ -14,7 +14,7 @@ export const useOrders = (provider, signer, account) => {
     if (!orderBook) return;
     setLoading(true);
     try {
-      const orderCount = Number(await orderBook.orderCounter());
+      const order Fallout 4orderCount = Number(await orderBook.orderCounter());
       const loadedOrders = [];
       for (let i = 1; i <= orderCount; i++) {
         const order = await orderBook.orders(i);
@@ -31,114 +31,134 @@ export const useOrders = (provider, signer, account) => {
       }
       setOrders(loadedOrders);
     } catch (err) {
-      setError("Failed to load orders: " + err.message);
+      console.error('Error loading orders:', err);
+      setError('Failed to load orders: ' + err.message);
+      toast.error('Failed to load orders');
     } finally {
       setLoading(false);
     }
   }, [orderBook]);
 
-  const createOrder = async (sellToken, buyToken, sellAmount, buyAmount) => {
-    if (!orderBook || !sellAmount || !buyAmount) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const sellTokenDecimals = TOKENS[Object.keys(TOKENS).find((k) => TOKENS[k].address === sellToken)].decimals;
-      const buyTokenDecimals = TOKENS[Object.keys(TOKENS).find((k) => TOKENS[k].address === buyToken)].decimals;
-      const sellAmountWei = parseUnits(sellAmount, sellTokenDecimals);
-      const buyAmountWei = parseUnits(buyAmount, buyTokenDecimals);
+  const createOrder = useCallback(
+    async (sellToken, buyToken, sellAmount, buyAmount, sellBlockchain, buyBlockchain) => {
+      if (!orderBook || !sellAmount || !buyAmount) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const sellTokenInfo =
+          TOKENS[sellBlockchain.toUpperCase()]?.[Object.keys(TOKENS[sellBlockchain.toUpperCase()] || {}).find(
+            (k) => TOKENS[sellBlockchain.toUpperCase()][k].address === sellToken
+          )];
+        const buyTokenInfo =
+          TOKENS[buyBlockchain.toUpperCase()]?.[Object.keys(TOKENS[buyBlockchain.toUpperCase()] || {}).find(
+            (k) => TOKENS[buyBlockchain.toUpperCase()][k].address === buyToken
+          )];
 
-      let tx;
-      if (sellToken === TOKENS.ETH.address) {
-        tx = await orderBook.createOrder(sellToken, buyToken, sellAmountWei, buyAmountWei, {
-          value: sellAmountWei.toString(),
-        });
-      } else {
-        const tokenToSell = getERC20(sellToken);
-        const allowance = await tokenToSell.allowance(account, orderBook.target);
-        if (allowance < sellAmountWei) {
-          const approveTx = await tokenToSell.approve(orderBook.target, sellAmountWei);
-          await approveTx.wait();
+        if (!sellTokenInfo || !buyTokenInfo) {
+          throw new Error('Selected token not found');
         }
-        tx = await orderBook.createOrder(sellToken, buyToken, sellAmountWei, buyAmountWei);
-      }
-      await tx.wait();
-      await loadOrders();
-      setError("Order created successfully!");
-    } catch (err) {
-      setError(`Failed to create order: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const executeOrder = async (orderId) => {
-    if (!trade || !account) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const order = await orderBook.orders(orderId);
-      console.log("Order:", order);
-      console.log("Trade contract address:", trade.target); // Логируем адрес контракта
-      if (!order.active) throw new Error("Order is not active");
-      if (order.creator.toLowerCase() === account.toLowerCase()) {
-        throw new Error("Cannot execute your own order");
-      }
-      console.log("Tests: 1"); // Логируем адрес контракта
+        const sellTokenDecimals = sellTokenInfo.decimals;
+        const buyTokenDecimals = buyTokenInfo.decimals;
 
-      let tx;
-      console.log("Tests: 2"); // Логируем адрес контракта
-      if (order.tokenToBuy === TOKENS.ETH.address) {
-      console.log("Tests: 3"); // Логируем адрес контракта
-        tx = await trade.executeOrder(orderId, { value: order.buyAmount.toString() });
-      } else {
-            console.log("Tests: 4"); // Логируем адрес контракта
-        const tokenToBuy = getERC20(order.tokenToBuy);
-        const allowance = await tokenToBuy.allowance(account, trade.target);
-        console.log(`Allowance: ${allowance.toString()}, Needed: ${order.buyAmount.toString()}`);
-        console.log("Tests: 5"); // Логируем адрес контракта
-        if (allowance < order.buyAmount) {
-          console.log("Approving...");
-          const approveTx = await tokenToBuy.approve(trade.target, order.buyAmount);
-          await approveTx.wait(2); // Ждём 2 подтверждения для надёжности
-          console.log("Approve confirmed");
-          const newAllowance = await tokenToBuy.allowance(account, trade.target);
-          console.log(`New allowance: ${newAllowance.toString()}`);
+        const sellAmountWei = parseUnits(sellAmount, sellTokenDecimals);
+        const buyAmountWei = parseUnits(buyAmount, buyTokenDecimals);
+
+        let tx;
+        if (sellToken === TOKENS[sellBlockchain.toUpperCase()]?.ETH?.address) {
+          tx = await orderBook.createOrder(sellToken, buyToken, sellAmountWei, buyAmountWei, {
+            value: sellAmountWei.toString(),
+          });
+        } else {
+          const tokenToSell = getERC20(sellToken);
+          const allowance = await tokenToSell.allowance(account, orderBook.target);
+          if (allowance < sellAmountWei) {
+            const approveTx = await tokenToSell.approve(orderBook.target, sellAmountWei);
+            await approveTx.wait();
+          }
+          tx = await orderBook.createOrder(sellToken, buyToken, sellAmountWei, buyAmountWei);
         }
-        tx = await trade.executeOrder(orderId);
+        await tx.wait();
+        await loadOrders();
+        setError('Order created successfully!');
+        toast.success('Order created successfully!');
+      } catch (err) {
+        console.error('Error creating order:', err);
+        setError('Failed to create order: ' + err.message);
+        toast.error('Failed to create order');
+      } finally {
+        setLoading(false);
       }
-      console.log("Tests: 6"); // Логируем адрес контракта
-      await tx.wait();
-      await loadOrders();
-      setError("Order executed successfully!");
-    } catch (err) {
-      setError(`Failed to execute order: ${err.message}`);
-      console.error("Error details:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+    [orderBook, trade, getERC20, account, loadOrders]
+  );
 
-  const cancelOrder = async (orderId) => {
-    if (!orderBook || !account) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const order = await orderBook.orders(orderId);
-      if (!order.active) throw new Error("Order is already inactive");
-      if (order.creator.toLowerCase() !== account.toLowerCase()) {
-        throw new Error("You can only cancel your own orders");
+  const executeOrder = useCallback(
+    async (orderId) => {
+      if (!trade || !account) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const order = await orderBook.orders(orderId);
+        if (!order.active) throw new Error('Order is not active');
+
+        let tx;
+        if (order.tokenToBuy === TOKENS.ETHEREUM.ETH.address) {
+          tx = await trade.executeOrder(orderId, { value: order.buyAmount.toString() });
+        } else {
+          const tokenToBuy = getERC20(order.tokenToBuy);
+          const allowance = await tokenToBuy.allowance(account, trade.target);
+          if (allowance < order.buyAmount) {
+            const approveTx = await tokenToBuy.approve(trade.target, order.buyAmount);
+            await approveTx.wait(2);
+          }
+          tx = await trade.executeOrder(orderId);
+        }
+        await tx.wait();
+        await loadOrders();
+        setError('Order executed successfully!');
+        toast.success('Order executed successfully!');
+      } catch (err) {
+        console.error('Error executing order:', err);
+        const errorMessage = err.reason === 'Cannot execute own order'
+          ? 'You cannot execute your own order'
+          : 'Failed to execute order: ' + err.message;
+        setError(errorMessage);
+        toast.error(errorMessage);
+      } finally {
+        setLoading(false);
       }
+    },
+    [orderBook, trade, getERC20, account, loadOrders]
+  );
 
-      const tx = await orderBook.cancelOrder(orderId);
-      await tx.wait();
-      await loadOrders();
-      setError("Order cancelled successfully!");
-    } catch (err) {
-      setError(`Failed to cancel order: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const cancelOrder = useCallback(
+    async (orderId) => {
+      if (!orderBook || !account) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const order = await orderBook.orders(orderId);
+        if (!order.active) throw new Error('Order is already inactive');
+        if (order.creator.toLowerCase() !== account.toLowerCase()) {
+          throw new Error('You can only cancel your own orders');
+        }
+
+        const tx = await orderBook.cancelOrder(orderId);
+        await tx.wait();
+        await loadOrders();
+        setError('Order cancelled successfully!');
+        toast.success('Order cancelled successfully!');
+      } catch (err) {
+        console.error('Error cancelling order:', err);
+        setError('Failed to cancel order: ' + err.message);
+        toast.error('Failed to cancel order');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [orderBook, account, loadOrders]
+  );
 
   return { orders, loading, error, loadOrders, createOrder, executeOrder, cancelOrder, setError };
 };
