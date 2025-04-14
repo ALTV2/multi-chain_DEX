@@ -213,3 +213,27 @@ tr:hover td {
   align-items: center;
   margin: 10px 0;
 }
+
+.filters {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.filters select,
+.filters button {
+  padding: 10px;
+}
+
+.order-book img,
+.create-order img {
+  vertical-align: middle;
+  margin-left: 5px;
+}
+
+.form {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr); /* Увеличено для блокчейнов и иконок */
+  gap: 15px;
+  align-items: center;
+}

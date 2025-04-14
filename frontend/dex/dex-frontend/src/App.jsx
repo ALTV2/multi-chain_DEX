@@ -8,7 +8,7 @@ import Message from './components/Message';
 import { useWallet } from './hooks/useWallet';
 import { useOrders } from './hooks/useOrders';
 import { useTokenManager } from './hooks/useTokenManager';
-import { TOKENS } from './constants/tokens';
+import { TOKENS } from './constants/blockchains';
 
 function App() {
   const { provider, signer, account, connectWallet, disconnectWallet } = useWallet();

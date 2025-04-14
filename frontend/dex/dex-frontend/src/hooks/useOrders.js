@@ -1,6 +1,7 @@
+// src/hooks/useOrders.js
 import { useState, useCallback } from 'react';
 import { parseUnits } from 'ethers';
-import { TOKENS } from '../constants/tokens';
+import { TOKENS } from '../constants/blockchains';
 import { useContract } from './useContract';
 
 export const useOrders = (provider, signer, account) => {
@@ -76,28 +77,42 @@ export const useOrders = (provider, signer, account) => {
     setError(null);
     try {
       const order = await orderBook.orders(orderId);
+      console.log("Order:", order);
+      console.log("Trade contract address:", trade.target); // Логируем адрес контракта
       if (!order.active) throw new Error("Order is not active");
       if (order.creator.toLowerCase() === account.toLowerCase()) {
         throw new Error("Cannot execute your own order");
       }
+      console.log("Tests: 1"); // Логируем адрес контракта
 
       let tx;
+      console.log("Tests: 2"); // Логируем адрес контракта
       if (order.tokenToBuy === TOKENS.ETH.address) {
+      console.log("Tests: 3"); // Логируем адрес контракта
         tx = await trade.executeOrder(orderId, { value: order.buyAmount.toString() });
       } else {
+            console.log("Tests: 4"); // Логируем адрес контракта
         const tokenToBuy = getERC20(order.tokenToBuy);
         const allowance = await tokenToBuy.allowance(account, trade.target);
+        console.log(`Allowance: ${allowance.toString()}, Needed: ${order.buyAmount.toString()}`);
+        console.log("Tests: 5"); // Логируем адрес контракта
         if (allowance < order.buyAmount) {
+          console.log("Approving...");
           const approveTx = await tokenToBuy.approve(trade.target, order.buyAmount);
-          await approveTx.wait();
+          await approveTx.wait(2); // Ждём 2 подтверждения для надёжности
+          console.log("Approve confirmed");
+          const newAllowance = await tokenToBuy.allowance(account, trade.target);
+          console.log(`New allowance: ${newAllowance.toString()}`);
         }
         tx = await trade.executeOrder(orderId);
       }
+      console.log("Tests: 6"); // Логируем адрес контракта
       await tx.wait();
       await loadOrders();
       setError("Order executed successfully!");
     } catch (err) {
       setError(`Failed to execute order: ${err.message}`);
+      console.error("Error details:", err);
     } finally {
       setLoading(false);
     }

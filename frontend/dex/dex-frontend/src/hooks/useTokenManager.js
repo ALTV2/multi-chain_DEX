@@ -1,5 +1,6 @@
+// src/hooks/useTokenManager.js
 import { useState, useCallback } from 'react';
-import { TOKENS } from '../constants/tokens';
+import { TOKENS } from '../constants/blockchains'; // Обновлённый импорт
 import { useContract } from './useContract';
 
 export const useTokenManager = (provider, signer, account) => {
@@ -50,6 +51,7 @@ export const useTokenManager = (provider, signer, account) => {
   const toggleTokenRestriction = async () => {
     if (!orderBook || !isOwner) return;
     setLoading(true);
+    setError(null);
     setError(null);
     try {
       const tx = await orderBook.toggleTokenRestriction(!restrictTokens);

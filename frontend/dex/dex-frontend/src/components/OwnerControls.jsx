@@ -1,5 +1,6 @@
+// src/components/OwnerControls.jsx
 import React from 'react';
-import { TOKENS } from '../constants/tokens';
+import { TOKENS } from '../constants/blockchains'; // Обновлённый импорт
 
 const OwnerControls = ({
   isOwner,
